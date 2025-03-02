@@ -1,42 +1,42 @@
 import time
-from Market import Market
-from Option import Option
-from PricingModel import ModelMC
+from Excel_Handler import PricingModels
 
-market = Market(S0=1, r=0.06, sigma=0.2, dividend=0)
-option = Option(K=1.1, T=3, opt_type="put")
-model_mc = ModelMC(market, option, n_paths=8, n_steps=3, seed=1)
+def main():
+    excel = PricingModels("Models_comparisons.xlsm")
 
-print("Prix Black-Scholes :", f"{option.black_scholes_price(market):.6f}")
+    # Instanciation du modèle via ExcelHandler
+    model_mc = excel.get_model()
 
-start_total = time.time()
+    # Calcul des prix
+    start_total = time.time()
 
-start = time.time()
-price = model_mc.european_price_scalar()
-end = time.time()
-elapsed = end - start
-total_elapsed = end - start_total
-print(f"Prix Européen Scalaire: {price:.6f} (temps écoulé: {elapsed:.4f} s, total: {total_elapsed:.4f} s)")
+    prices = []
+    times = []
 
-start = time.time()
-price = model_mc.european_price_vectorized()
-end = time.time()
-elapsed = end - start
-total_elapsed = end - start_total
-print(f"Prix Européen Vectorisé: {price:.6f} (temps écoulé: {elapsed:.4f} s, total: {total_elapsed:.4f} s)")
+    start = time.time()
+    prices.append(model_mc.black_scholes_price())
+    times.append(time.time() - start)
 
-start = time.time()
-price = model_mc.american_price_scalar()
-end = time.time()
-elapsed = end - start
-total_elapsed = end - start_total
-print(f"Prix Américain Scalaire: {price:.6f} (temps écoulé: {elapsed:.4f} s, total: {total_elapsed:.4f} s)")
+    start = time.time()
+    prices.append(model_mc.european_price_scalar())
+    times.append(time.time() - start)
 
-start = time.time()
-price = model_mc.american_price_vectorized()
-end = time.time()
-elapsed = end - start
-total_elapsed = end - start_total
-print(f"Prix Américain Vectorisé: {price:.6f} (temps écoulé: {elapsed:.4f} s, total: {total_elapsed:.4f} s)")
+    start = time.time()
+    prices.append(model_mc.european_price_vectorized())
+    times.append(time.time() - start)
 
-print(f"Temps total d'exécution: {time.time() - start_total:.4f} s")
+    start = time.time()
+    prices.append(model_mc.american_price_scalar())
+    times.append(time.time() - start)
+
+    start = time.time()
+    prices.append(model_mc.american_price_vectorized())
+    times.append(time.time() - start)
+
+    print(f"Temps total d'exécution: {time.time() - start_total:.4f} s")
+
+    # Écriture des résultats dans Excel
+    excel.write_results(prices, times)
+
+if __name__ == "__main__":
+    main()
