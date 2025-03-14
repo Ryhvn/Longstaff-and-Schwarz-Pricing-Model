@@ -1,32 +1,34 @@
 import numpy as np
-from sklearn.linear_model import LinearRegression
-
-# ---------------- Regression Class  ----------------
-class Regression1:
-    @staticmethod
-    def fit(X, Y):
-        if len(X) == 0:
-            return np.zeros_like(Y)
-        X_reg = np.vstack([X, X ** 2]).T # Continuation value with polynomial regression
-        model = LinearRegression().fit(X_reg, Y)
-        return model.predict(X_reg)
 
 class Regression:
     @staticmethod
-    def fit(X, Y):
+    def fit(reg_type, X, Y):
         if len(X) == 0:
             return np.zeros_like(Y)
 
-        # Construction de la matrice X_reg avec une colonne de 1 pour l'intercept
-        X_reg = np.vstack([np.ones_like(X), X, X ** 2]).T
+        # Mapping entre le nom et l'ordre du polynôme
+        reg_types = {
+            "Linear": 1,
+            "Quadratic": 2,
+            "Cubic": 3,
+            "Quartic": 4,
+            "Quintic": 5,
+            "Sextic": 6
+        }
 
-        # Régression par moindres carrés (résout AX = B)
-        coeffs, _, _, _ = np.linalg.lstsq(X_reg, Y, rcond=None)  # rcond=None pour éviter les warnings
+        if reg_type not in reg_types:
+            raise ValueError(f"Type de régression '{reg_type}' non reconnu. "
+                             f"Choisissez parmi {list(reg_types.keys())}.")
 
-        # Affichage des coefficients
-        #print(f"Intercept: {coeffs[0]:.6f}, Coefficients: {coeffs[1]:.6f}, {coeffs[2]:.6f}")
+        degree = reg_types[reg_type]  # Récupération du degré correspondant
 
-        # Calcul des valeurs prédites (valeur de continuation)
-        continuation = X_reg @ coeffs  # Produit matriciel entre X_reg et les coefficients
+        # Construction de la matrice X_reg avec les puissances de X jusqu'à 'degree'
+        X_reg = np.vstack([X ** i for i in range(degree + 1)]).T
+
+        # Régression par moindres carrés
+        coeffs, _, _, _ = np.linalg.lstsq(X_reg, Y, rcond=None)
+
+        # Calcul des valeurs prédites
+        continuation = X_reg @ coeffs  # Produit matriciel
 
         return continuation

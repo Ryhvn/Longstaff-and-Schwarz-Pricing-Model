@@ -1,11 +1,12 @@
 import time
-from Excel_Handler import PricingModels
+from Excel_Handler import EUPricing
 
 def main():
-    excel = PricingModels("Models_comparisons.xlsm")
+    excel = EUPricing("Models_comparisons.xlsm")
 
     # Instanciation du modèle via ExcelHandler
-    model_mc = excel.get_model()
+    model_mc = excel.get_mcmodel()
+    model_tree = excel.get_treemodel()
 
     # Calcul des prix
     start_total = time.time()
@@ -14,29 +15,36 @@ def main():
     times = []
 
     start = time.time()
-    prices.append(model_mc.black_scholes_price())
+    prices.append(model_mc.bsm.price())
     times.append(time.time() - start)
 
-    start = time.time()
-    prices.append(model_mc.european_price_scalar())
+    prices.append(0)
+    #start = time.time()
+    #prices.append(model_mc.european_price_scalar())
     times.append(time.time() - start)
 
     start = time.time()
     prices.append(model_mc.european_price_vectorized())
+    CI = model_mc.european_price_confidence_interval()
     times.append(time.time() - start)
 
-    start = time.time()
-    prices.append(model_mc.american_price_scalar())
+    prices.append(0)
+    #start = time.time()
+    #prices.append(model_mc.american_price_scalar())
     times.append(time.time() - start)
 
     start = time.time()
     prices.append(model_mc.american_price_vectorized())
     times.append(time.time() - start)
 
+    start = time.time()
+    prices.append(model_tree.price())
+    times.append(time.time() - start)
+
     print(f"Temps total d'exécution: {time.time() - start_total:.4f} s")
 
     # Écriture des résultats dans Excel
-    excel.write_results(prices, times)
+    excel.write_results(prices, CI, times)
 
 if __name__ == "__main__":
     main()

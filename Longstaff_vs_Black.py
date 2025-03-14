@@ -1,31 +1,36 @@
 from Excel_Handler import ConvLSvsBS
 import numpy as np
 
+import sys
+print(sys.path)
+
 # Programme principal
 def main():
     excel = ConvLSvsBS("Models_comparisons.xlsm")
 
     # Récupération des options et des steps
-    options = excel.get_options()
-    steps_list = excel.get_steps_list()
-
-    # Création unique du modèle Monte Carlo (avec la première option pour init)
-    model = excel.get_model(options[0])
+    options = excel.get_options_list()
+    paths_list = excel.get_paths_list()
 
     # Calcul des prix Black-Scholes
-    bs_prices = np.array([
-        model.black_scholes_price() if setattr(model, "option", option) is None else model.black_scholes_price()
-        for option in options
-    ])
+    #bs_prices = np.array([
+        #model.bsm.price() if setattr(model, "option", option) is None else model.bsm.price()
+        #for option in options
+    #])
+    bs_prices = []
+    model = excel.get_mcmodel()
+    for option in options:
+        model.option = option
+        bs_prices.append(model.bsm.price())
 
     # Matrice de convergence LS (pré-allouée pour éviter les ralentissements)
-    ls_matrix = np.zeros((len(steps_list), len(options)))
+    ls_matrix = np.zeros((len(paths_list), len(options)))
 
-    for i, steps in enumerate(steps_list):
-        model = excel.get_model(options[0],n_steps=steps)
+    for i, paths in enumerate(paths_list):
+        model = excel.get_mcmodel(n_paths=paths)
 
         for j, option in enumerate(options):
-            model.option = option  # Mise à jour de l'option
+            model.option = option
             ls_matrix[i, j] = model.american_price_vectorized()
 
     # Écriture des résultats
