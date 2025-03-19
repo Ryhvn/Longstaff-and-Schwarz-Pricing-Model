@@ -1,8 +1,8 @@
-from MCPricer import MCModel
+from MCPricer import MonteCarloEngine
 import numpy as np
 
 class GreeksCalculator:
-    def __init__(self, mc_model: MCModel, epsilon=1e-4):
+    def __init__(self, mc_model: MonteCarloEngine, epsilon=1e-4):
         """
         Initialise le calculateur de Greeks avec un modèle MC.
 
@@ -23,7 +23,7 @@ class GreeksCalculator:
         }
         new_params.update(kwargs)  # Modifier les paramètres fournis
 
-        return MCModel(**new_params)  # Nouvelle instance de modèle MC
+        return MonteCarloEngine(**new_params)  # Nouvelle instance de modèle MC
 
     def delta(self):
         """Approximation numérique du Delta : dPrix/dS0"""

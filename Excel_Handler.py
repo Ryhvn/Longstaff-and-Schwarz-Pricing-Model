@@ -2,7 +2,7 @@ import xlwings as xw
 from abc import ABC, abstractmethod
 from Market import Market
 from Option import Call, Put
-from MCPricer import MCModel
+from MCPricer import MonteCarloEngine
 from TreePricer import TreeModel
 
 # Classe Abstraite SheetHandler
@@ -60,14 +60,15 @@ class SheetHandler(ABC):
 
     def get_mcmodel(self, **kwargs):
         """Instancie un modèle Monte Carlo avec des paramètres ajustables."""
-        return MCModel(
+        return MonteCarloEngine(
             self.get_market(),
             self.get_options(),
             pricing_date=kwargs.get("pricing_date", self.get_value(f"{self.param_prefix}PrDate")),
             n_paths=int(kwargs.get("n_paths", self.get_value(f"{self.param_prefix}Paths"))),
             n_steps=int(kwargs.get("n_steps", self.get_value(f"{self.param_prefix}Steps"))),
             seed=int(kwargs.get("seed", self.get_value(f"{self.param_prefix}Seed"))),
-            ex_frontier=kwargs.get("ex_frontier",self.get_value(f"{self.param_prefix}Ex_frontier"))
+            ex_frontier=kwargs.get("ex_frontier",self.get_value(f"{self.param_prefix}Ex_frontier")),
+            compute_antithetic = kwargs.get("compute_antithetic", self.get_value(f"{self.param_prefix}Compute_Antithetic")).lower() == "true"
         )
 
     @abstractmethod

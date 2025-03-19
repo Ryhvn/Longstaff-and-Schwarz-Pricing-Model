@@ -1,8 +1,8 @@
 import numpy as np
 from Node import Node
-from PricingModel import Model  # Importation de la classe mère
+from PricingModel import Engine  # Importation de la classe mère
 
-class TreeModel(Model):
+class TreeModel(Engine):
     def __init__(self, market, option, pricing_date, n_paths, n_steps, THRESHOLD=1e-7):
         super().__init__(market, option, pricing_date, n_paths, n_steps)  # Appel du constructeur parent
 

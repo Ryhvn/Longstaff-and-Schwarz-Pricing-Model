@@ -5,7 +5,7 @@ from BSPricer import BlackScholesPricer
 import numpy as np
 
 # ---------------- Model Abstract Class ----------------
-class Model(ABC):
+class Engine(ABC):
     def __init__(self, market: Market, option: Option, pricing_date, n_paths, n_steps):
         self.market = market
         self._option = option
@@ -16,7 +16,6 @@ class Model(ABC):
         self.dt = self.T / n_steps
         self.df = np.exp(-self.market.r * self.dt)
         # Conversion de div_date en indice temporel si dividende discret
-        self.t_div = None
         self._calculate_t_div()
         self.bsm = BlackScholesPricer(self.market,self.option,self.t_div, self.dt, self.T)
 
