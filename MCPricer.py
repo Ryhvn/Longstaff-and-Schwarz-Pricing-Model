@@ -105,10 +105,12 @@ class PathGenerator:
             paths = np.empty((self.n_paths, self.n_steps + 1))
             paths[:, 0] = self.market.S0  # Initialisation à S0
 
-            if self.compute_antithetic & (self.n_paths % 2 == 0):
-                # Générer les mouvements browniens vectorisés
+            if self.compute_antithetic and self.n_paths % 2 == 0:
                 dW = self.brownian.vectorized_motion(self.n_paths//2, self.n_steps)
                 dW = np.concatenate((dW, -dW), axis=0)
+                #if self.n_paths % 2 == 1:
+                    #dW_extra = self.brownian.vectorized_motion(1, self.n_steps)
+                    #dW = np.concatenate((dW, dW_extra), axis=0)
             else  :
                 dW = self.brownian.vectorized_motion(self.n_paths, self.n_steps)
 
@@ -164,9 +166,14 @@ class MonteCarloEngine(Engine):
         """Calcule les payoffs actualisés pour un pricing européen."""
         payoffs = self.option.payoff(paths[:, -1])  # Payoff à maturité
         return np.exp(-self.market.r * self.T) * payoffs  # Actualisation
+      
+    def get_variance(self):
+        payoffs = self._discounted_payoffs(self.PathGenerator.generate_paths_vectorized())
+        if self.PathGenerator.compute_antithetic:
+            payoffs = (payoffs[:self.n_paths//2] + payoffs[self.n_paths//2:]) / 2
+        return payoffs.var()
+
     
-    def get_discounted_payoffs(self):
-        return self._discounted_payoffs(self.PathGenerator.generate_paths_vectorized())
     
     def _european_price(self, paths):
         """Calcule le prix européen moyen."""

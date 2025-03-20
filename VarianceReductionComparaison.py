@@ -2,30 +2,29 @@ from Excel_Handler import EUPricing
 import numpy as np
 import plotly.graph_objs as go
 
+#sanity check pour la reduction de variance
 def main():
     excel = EUPricing("Models_comparisons.xlsm")
 
-    # Récupération des steps
     paths_list = excel.get_paths_list()
-
-    # Listes pour stocker les variances et le nombre de paths traités
     mc_variance = []
     mc_variance_antithetic = []
     processed_paths = []
 
     for paths in paths_list:
-        if paths > 100 and paths <= 30000 : 
+        if paths > 100 and paths <= 30000 and paths%2==0: 
             engine = excel.get_mcmodel(n_paths=paths, compute_antithetic="False")
             engine_antithetic = excel.get_mcmodel(n_paths=paths, compute_antithetic="True")
             # Calcul de la variance sur les payoffs actualisés
-            mc_variance.append(engine.get_discounted_payoffs().var())
-            mc_variance_antithetic.append(engine_antithetic.get_discounted_payoffs().var())
+            variance=engine.get_variance()
+            variance_antithetic=engine_antithetic.get_variance()
+            mc_variance.append(variance)
+            mc_variance_antithetic.append(variance_antithetic)
             processed_paths.append(paths)
             print(f"Paths: {paths} traités.")
 
     payoff_difference = np.array(mc_variance) - np.array(mc_variance_antithetic)
 
-    # Tracé du graphique avec Plotly en utilisant uniquement les chemins traités
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=processed_paths, 
