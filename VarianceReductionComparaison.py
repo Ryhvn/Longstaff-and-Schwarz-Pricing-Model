@@ -2,7 +2,6 @@ from Excel_Handler import EUPricing
 import numpy as np
 import plotly.graph_objs as go
 
-
 def main():
     excel = EUPricing("Models_comparisons.xlsm")
 
@@ -45,7 +44,6 @@ def main():
     )
 
     fig.show()
-
 
 if __name__ == '__main__':
     main()
