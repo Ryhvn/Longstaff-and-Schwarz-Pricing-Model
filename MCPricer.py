@@ -113,11 +113,8 @@ class PathGenerator:
             else:
                 dW = self.brownian.vectorized_motion(self.n_paths, self.n_steps)
 
-            # Calcul des incréments pour tous les chemins
-            increments = self.get_factors(dW)
-
             # Diffusions
-            paths[:, 1:] = self.market.S0 * increments
+            paths[:, 1:] = self.market.S0 * self.get_factors(dW)
 
             # Application des dividendes discrets éventuels
             self._apply_dividends(paths)

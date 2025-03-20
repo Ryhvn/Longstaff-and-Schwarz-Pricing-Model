@@ -15,6 +15,7 @@ class Engine(ABC):
         self.T = self._calculate_T()
         self.dt = self.T / n_steps
         self.df = np.exp(-self.market.r * self.dt)
+        self.t_div = None
         # Conversion de div_date en indice temporel si dividende discret
         self._calculate_t_div()
         self.bsm = BlackScholesPricer(self.market,self.option,self.t_div, self.dt, self.T)
