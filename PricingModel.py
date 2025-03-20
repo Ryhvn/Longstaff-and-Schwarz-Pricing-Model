@@ -5,7 +5,7 @@ from BSPricer import BlackScholesPricer
 import numpy as np
 
 # ---------------- Model Abstract Class ----------------
-class Model(ABC):
+class Engine(ABC):
     def __init__(self, market: Market, option: Option, pricing_date, n_paths, n_steps):
         self.market = market
         self._option = option

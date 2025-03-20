@@ -1,8 +1,8 @@
 import numpy as np
 from Node import Node
-from PricingModel import Model  # Importation de la classe mère
+from PricingModel import Engine  # Importation de la classe mère
 
-class TreeModel(Model):
+class TreeModel(Engine):
     def __init__(self, market, option, pricing_date, n_paths, n_steps, THRESHOLD=1e-7):
         super().__init__(market, option, pricing_date, n_paths, n_steps)  # Appel du constructeur parent
 
@@ -229,7 +229,7 @@ class TreeModel(Model):
         else:
             raise ValueError("Execution type wrongly specified. Please only use 'European' or 'American'")
 
-    def price(self):
+    def price(self, **kwargs):
         trunc_node = self.GetTruncNode(self.n_steps)
         trunc_node.NFV = self.option.payoff(trunc_node.S)
 

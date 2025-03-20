@@ -1,16 +1,20 @@
-from MCPricer import MCModel
-import numpy as np
+from MCPricer import MonteCarloEngine
+from datetime import timedelta
+
 
 class GreeksCalculator:
-    def __init__(self, mc_model: MCModel, epsilon=1e-4):
+    def __init__(self, mc_model: MonteCarloEngine, epsilon=1e-4, type="MC"):
         """
         Initialise le calculateur de Greeks avec un modèle MC.
 
         :param mc_model: Instance du modèle de Monte Carlo.
         :param epsilon: Pas de variation pour les dérivées numériques.
+        :param type: Méthode de pricing ("Longstaff / MC").
         """
         self.mc_model = mc_model
-        self.epsilon = epsilon  # Petite variation pour les dérivées
+        self.epsilon = epsilon
+        self.type = type
+        self._cached_prices = {}  # Stocke les prix calculés pour éviter les répétitions
 
     def _recreate_model(self, **kwargs):
         """Crée un nouveau modèle MC avec des paramètres modifiés."""
@@ -20,70 +24,82 @@ class GreeksCalculator:
             "pricing_date": self.mc_model.pricing_date,
             "n_paths": self.mc_model.n_paths,
             "n_steps": self.mc_model.n_steps,
+            "seed": self.mc_model.PathGenerator.brownian.seed
         }
-        new_params.update(kwargs)  # Modifier les paramètres fournis
+        new_params.update(kwargs)
 
-        return MCModel(**new_params)  # Nouvelle instance de modèle MC
+        return MonteCarloEngine(**new_params)
+
+    def _get_price(self, mc_model):
+        """Retourne le prix selon la méthode choisie."""
+        if self.type == "Longstaff":
+            return mc_model.american_price_vectorized()
+        return mc_model.european_price_vectorized()
+
+    def _get_cached_price(self, key, mc_model):
+        """Récupère le prix depuis le cache ou le calcule si nécessaire."""
+        if key not in self._cached_prices:
+            self._cached_prices[key] = self._get_price(mc_model)
+        return self._cached_prices[key]
 
     def delta(self):
-        """Approximation numérique du Delta : dPrix/dS0"""
+        """Calcul optimisé du Delta : dPrix/dS0"""
         S0 = self.mc_model.market.S0
 
-        # Nouveau modèle avec S0 augmenté
         mc_up = self._recreate_model(market=self.mc_model.market.copy(S0=S0 * (1 + self.epsilon)))
-        price_up = mc_up.european_price_vectorized()
-
-        # Nouveau modèle avec S0 diminué
         mc_down = self._recreate_model(market=self.mc_model.market.copy(S0=S0 * (1 - self.epsilon)))
-        price_down = mc_down.european_price_vectorized()
+
+        price_up = self._get_cached_price("S0_up", mc_up)
+        price_down = self._get_cached_price("S0_down", mc_down)
 
         return (price_up - price_down) / (2 * S0 * self.epsilon)
 
     def gamma(self):
-        """Approximation numérique du Gamma : d²Prix/dS0²"""
+        """Calcul optimisé du Gamma : d²Prix/dS0²"""
         S0 = self.mc_model.market.S0
 
         mc_up = self._recreate_model(market=self.mc_model.market.copy(S0=S0 * (1 + self.epsilon)))
-        price_up = mc_up.european_price_vectorized()
-
         mc_down = self._recreate_model(market=self.mc_model.market.copy(S0=S0 * (1 - self.epsilon)))
-        price_down = mc_down.european_price_vectorized()
 
-        mc_normal = self._recreate_model()
-        price = mc_normal.european_price_vectorized()
+        price = self._get_cached_price("S0", self.mc_model)
+        price_up = self._get_cached_price("S0_up", mc_up)
+        price_down = self._get_cached_price("S0_down", mc_down)
 
         return (price_up - 2 * price + price_down) / (S0 ** 2 * self.epsilon ** 2)
 
     def vega(self):
-        """Approximation numérique du Vega : dPrix/dSigma"""
+        """Calcul du Vega : dPrix/dSigma"""
         sigma = self.mc_model.market.sigma
 
         mc_up = self._recreate_model(market=self.mc_model.market.copy(sigma=sigma + self.epsilon))
-        price_up = mc_up.european_price_vectorized()
-
         mc_down = self._recreate_model(market=self.mc_model.market.copy(sigma=sigma - self.epsilon))
-        price_down = mc_down.european_price_vectorized()
 
-        return (price_up - price_down) / (2 * self.epsilon)
+        price_up = self._get_cached_price("sigma_up", mc_up)
+        price_down = self._get_cached_price("sigma_down", mc_down)
+
+        return (price_up - price_down) / (2 * self.epsilon) / 100
 
     def theta(self):
-        """Approximation numérique du Theta : dPrix/dt"""
-        pricing_date = self.mc_model.pricing_date + np.timedelta64(1, 'D')
+        """Calcul du Theta : dPrix/dt"""
+        pricing_date = self.mc_model.pricing_date + timedelta(days=1)
+
         mc_new = self._recreate_model(pricing_date=pricing_date)
-        price_new = mc_new.european_price_vectorized()
+        price_new = self._get_cached_price("t_future", mc_new)
+        price_old = self._get_cached_price("t_now", self.mc_model)
 
-        price_old = self.mc_model.european_price_vectorized()
-
-        return (price_new - price_old) / (-1)  # Theta est généralement négatif
+        return (price_new - price_old) / (-1)
 
     def rho(self):
-        """Approximation numérique du Rho : dPrix/dr"""
+        """Calcul du Rho : dPrix/dr"""
         r = self.mc_model.market.r
 
         mc_up = self._recreate_model(market=self.mc_model.market.copy(r=r + self.epsilon))
-        price_up = mc_up.european_price_vectorized()
-
         mc_down = self._recreate_model(market=self.mc_model.market.copy(r=r - self.epsilon))
-        price_down = mc_down.european_price_vectorized()
+
+        price_up = self._get_cached_price("r_up", mc_up)
+        price_down = self._get_cached_price("r_down", mc_down)
 
         return (price_up - price_down) / (2 * self.epsilon)
+
+    def all_greeks(self):
+        return [self.delta(),self.gamma(),self.vega(),self.theta(),self.rho()]

@@ -1,4 +1,4 @@
-from PricingModel import Model
+from PricingModel import Engine
 from Regression import Regression
 from BrownianMotion import BrownianMotion
 import numpy as np
@@ -21,7 +21,7 @@ from scipy.stats import norm
 
 # ---------------- PathGenerator Class ----------------
 class PathGenerator:
-    def __init__(self, market, brownian, n_paths, n_steps, dt, t_div):
+    def __init__(self, market, brownian, n_paths, n_steps, dt, t_div, compute_antithetic=False):
         self.market = market
         self.brownian = brownian
         self.n_paths = n_paths
@@ -30,8 +30,9 @@ class PathGenerator:
         self.paths_scalar = None
         self.paths_vectorized = None
         self.t_div = t_div
+        self.compute_antithetic = compute_antithetic
 
-    def increment(self, dW: float) -> float:
+    def get_factors(self, dW: float) -> float:
         """
         Calcul de l'incrément selon la formule : exp((r - q - 0.5 * sigma^2) * dt + sigma * dW)
         Si dW est un scalaire, effectue le calcul pour une seule trajectoire.
@@ -88,7 +89,7 @@ class PathGenerator:
                     price = self._adjust_price_for_dividend(price, t)
 
                     # Calculer l'incrément et ajuster le prix
-                    price *= self.increment(dW)
+                    price *= self.get_factors(dW)
                     paths[i, t] = price
 
             self.paths_scalar = paths
@@ -105,10 +106,15 @@ class PathGenerator:
             paths[:, 0] = self.market.S0  # Initialisation à S0
 
             # Générer les mouvements browniens vectorisés
-            dW = self.brownian.vectorized_motion(self.n_paths, self.n_steps)
+            if self.compute_antithetic and self.n_paths % 2 == 0:
+                # Générer les mouvements browniens vectorisés
+                dW = self.brownian.vectorized_motion(self.n_paths // 2, self.n_steps)
+                dW = np.concatenate((dW, -dW), axis=0)
+            else:
+                dW = self.brownian.vectorized_motion(self.n_paths, self.n_steps)
 
             # Calcul des incréments pour tous les chemins
-            increments = self.increment(dW)
+            increments = self.get_factors(dW)
 
             # Diffusions
             paths[:, 1:] = self.market.S0 * increments
@@ -122,11 +128,11 @@ class PathGenerator:
 
 
 # ---------------- Classe MCModel ----------------
-class MCModel(Model):
-    def __init__(self, market, option, pricing_date, n_paths, n_steps, seed=None, ex_frontier="Quadratic"):
+class MonteCarloEngine(Engine):
+    def __init__(self, market, option, pricing_date, n_paths, n_steps, seed=None, ex_frontier="Quadratic", compute_antithetic=False):
         super().__init__(market, option, pricing_date, n_paths, n_steps)
         self.PathGenerator = PathGenerator(
-            self.market, BrownianMotion(self.dt, seed), self.n_paths, self.n_steps, self.dt, self.t_div)
+            self.market, BrownianMotion(self.dt, seed), self.n_paths, self.n_steps, self.dt, self.t_div, compute_antithetic)
         self.reg_type = ex_frontier
 
     def _price_american_lsm(self, paths):
@@ -160,6 +166,12 @@ class MCModel(Model):
         payoffs = self.option.payoff(paths[:, -1])  # Payoff à maturité
         return np.exp(-self.market.r * self.T) * payoffs  # Actualisation
 
+    def get_variance(self):
+         payoffs = self._discounted_payoffs(self.PathGenerator.generate_paths_vectorized())
+         if self.PathGenerator.compute_antithetic:
+             payoffs = (payoffs[:self.n_paths//2] + payoffs[self.n_paths//2:]) / 2
+         return payoffs.var()
+
     def _european_price(self, paths):
         """Calcule le prix européen moyen."""
         return np.mean(self._discounted_payoffs(paths))
@@ -173,7 +185,7 @@ class MCModel(Model):
         std_dev = np.std(discounted_payoffs, ddof=1)  # Écart-type des payoffs
 
         # Quantile de la loi normale pour l'intervalle de confiance (avec numpy)
-        z = norm.ppf(1 - alpha / 2)  # Approximation sans scipy
+        z = norm.ppf(1 - alpha / 2)
 
         # Calcul de la marge d'erreur
         CI_half_width = z * (std_dev / np.sqrt(self.n_paths))
@@ -182,6 +194,13 @@ class MCModel(Model):
         CI_upper = mean_price + CI_half_width
 
         return (CI_upper, CI_lower)
+
+    def price(self, type):
+        """ Retourne le prix associé au type d'option enregistré"""
+        if type == "Longstaff":
+            return self.american_price_vectorized()
+        else:
+            return self.european_price_vectorized()
 
     def european_price_scalar(self):
         return self._european_price(self.PathGenerator.generate_paths_scalar())

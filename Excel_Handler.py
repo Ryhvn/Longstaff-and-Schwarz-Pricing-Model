@@ -2,7 +2,7 @@ import xlwings as xw
 from abc import ABC, abstractmethod
 from Market import Market
 from Option import Call, Put
-from MCPricer import MCModel
+from MCPricer import MonteCarloEngine
 from TreePricer import TreeModel
 
 # Classe Abstraite SheetHandler
@@ -60,14 +60,15 @@ class SheetHandler(ABC):
 
     def get_mcmodel(self, **kwargs):
         """Instancie un modèle Monte Carlo avec des paramètres ajustables."""
-        return MCModel(
+        return MonteCarloEngine(
             self.get_market(),
             self.get_options(),
             pricing_date=kwargs.get("pricing_date", self.get_value(f"{self.param_prefix}PrDate")),
             n_paths=int(kwargs.get("n_paths", self.get_value(f"{self.param_prefix}Paths"))),
             n_steps=int(kwargs.get("n_steps", self.get_value(f"{self.param_prefix}Steps"))),
             seed=int(kwargs.get("seed", self.get_value(f"{self.param_prefix}Seed"))),
-            ex_frontier=kwargs.get("ex_frontier",self.get_value(f"{self.param_prefix}Ex_frontier"))
+            ex_frontier=kwargs.get("ex_frontier",self.get_value(f"{self.param_prefix}Ex_frontier")),
+            compute_antithetic=kwargs.get("compute_antithetic", self.get_value(f"{self.param_prefix}Antithetic"))
         )
 
     @abstractmethod
@@ -143,7 +144,7 @@ class RegressComp(SheetHandler):
     def __init__(self, file_path):
         super().__init__(file_path, "Regres. Comp")
         self.param_prefix = "RC_"
-        self.reg_list = ["Linear", "Quadratic", "Cubic", "Quartic", "Quintic", "Sextic"]
+        self.reg_list = ["Linear", "Quadratic"]#, "Cubic", "Quartic", "Quintic", "Sextic"]
 
     def get_steps_list(self):
         """Lit la liste des paths à partir de la cellule 'Conv_LS_S1'."""
@@ -157,3 +158,37 @@ class RegressComp(SheetHandler):
     def write_results(self, ls_matrix):
         """Écrit les résultats Monte Carlo dans la feuille EU Pricing pour différents nombres de chemins."""
         self.sheet.range("RCPrices").value = ls_matrix
+
+# Classe pour la feuille Pricing Menu
+class PricingMenu(SheetHandler):
+    def __init__(self, file_path):
+        super().__init__(file_path, "Pricing Menu")
+        self.param_prefix = "Menu_"
+
+    def write_results(self, prices, times, bs_greeks, model_greeks):
+        """Écrit les résultats de la première feuille."""
+        self.sheet.range(f"{self.param_prefix}ModelPrices").value = prices
+        self.sheet.range(f"{self.param_prefix}Times").value = times
+        self.sheet.range(f"{self.param_prefix}BSGreeks").options(transpose=True).value = bs_greeks
+        self.sheet.range(f"{self.param_prefix}ModelGreeks").options(transpose=True).value = model_greeks
+
+    def get_treemodel(self):
+        """Instancie un modèle d'arbre trinomial pour la feuille PricingMenu."""
+        return TreeModel(
+            self.get_market(),
+            self.get_options(),
+            pricing_date=self.sheet.range(f"{self.param_prefix}PrDate").value,
+            n_paths=int(self.sheet.range(f"{self.param_prefix}Paths").value),
+            n_steps=int(self.sheet.range(f"{self.param_prefix}Steps").value),
+        )
+
+    def get_selected_model(self):
+        """ Instancie le modèle spécifique au paramétrage utilisateur de l'option"""
+        if self.get_value(f"{self.param_prefix}Model") == "MC":
+            return self.get_mcmodel(), "MC"
+        elif self.get_value(f"{self.param_prefix}Model") == "Longstaff":
+            return self.get_mcmodel(), "Longstaff"
+        elif self.get_value(f"{self.param_prefix}Model") == "Trinomial":
+            return self.get_treemodel(), "Trinomial"
+        else:
+            raise ValueError("Le modèle sélectionné ne figure pas parmi les choix MC, Longstaff ou Trinomial.")
