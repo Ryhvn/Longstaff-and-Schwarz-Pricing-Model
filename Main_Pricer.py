@@ -25,7 +25,7 @@ def main():
 
     start = time.time()
     prices.append(model_mc.european_price_vectorized())
-    CI = model_mc.european_price_confidence_interval()
+    CI = model_mc.price_confidence_interval()
     times.append(time.time() - start)
 
     prices.append(0)

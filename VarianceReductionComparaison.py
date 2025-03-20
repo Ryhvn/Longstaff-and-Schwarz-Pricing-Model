@@ -1,49 +1,34 @@
-from Excel_Handler import EUPricing
+from Excel_Handler import VarianceComp
 import numpy as np
 import plotly.graph_objs as go
 
 def main():
-    excel = EUPricing("Models_comparisons.xlsm")
+    excel = VarianceComp("Models_comparisons.xlsm")
 
     # Récupération des steps
-    paths_list = excel.get_paths_list()
+    paths_list = excel.get_steps_list()
+    n = len(paths_list)
+    results = np.zeros((n, 7))
 
     # Listes pour stocker les variances et le nombre de paths traités
-    mc_variance = []
-    mc_variance_antithetic = []
-    processed_paths = []
-
-    for paths in paths_list:
-        if paths > 100 and paths <= 30000 and paths%2==0:
-            engine = excel.get_mcmodel(n_paths=paths, compute_antithetic="False")
-            engine_antithetic = excel.get_mcmodel(n_paths=paths, compute_antithetic="True")
-            # Calcul de la variance sur les payoffs actualisés
-            variance = engine.get_variance()
-            variance_antithetic = engine_antithetic.get_variance()
-            mc_variance.append(variance)
-            mc_variance_antithetic.append(variance_antithetic)
-            processed_paths.append(paths)
-            print(f"Paths: {paths} traités.")
-
-    payoff_difference = np.array(mc_variance) - np.array(mc_variance_antithetic)
-
-    # Tracé du graphique avec Plotly en utilisant uniquement les chemins traités
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=processed_paths,
-        y=payoff_difference,
-        mode='lines+markers',
-        name='Différence'
-    ))
-
-    fig.update_layout(
-        title="Différence de variance des payoffs actualisés (Standard - Antithetic)",
-        xaxis_title="Nombre de paths",
-        yaxis_title="Différence de variance",
-        hovermode="x unified"
-    )
-
-    fig.show()
+    for i, paths in enumerate(paths_list):
+        engine = excel.get_mcmodel(n_paths=paths, compute_antithetic=False)
+        engine_antithetic = excel.get_mcmodel(n_paths=paths, compute_antithetic=True)
+        variance = engine.get_variance()
+        variance_antithetic = engine_antithetic.get_variance()
+        (upper_bound,lower_bound ) = engine.price_confidence_interval()
+        (upper_bound_antithetic,lower_bound_antithetic ) = engine_antithetic.price_confidence_interval()
+        diff = variance - variance_antithetic
+        results[i, 0] = variance
+        results[i, 1] = variance_antithetic
+        results[i, 2] = diff
+        results[i, 3] = upper_bound
+        results[i, 4] = lower_bound
+        results[i, 5] = upper_bound_antithetic
+        results[i, 6] = lower_bound_antithetic
+        print(f"Paths: {paths} traités.")
+    stop=""
+    excel.write_results(results)
 
 if __name__ == '__main__':
     main()

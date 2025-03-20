@@ -144,7 +144,7 @@ class RegressComp(SheetHandler):
     def __init__(self, file_path):
         super().__init__(file_path, "Regres. Comp")
         self.param_prefix = "RC_"
-        self.reg_list = ["Linear", "Quadratic"]#, "Cubic", "Quartic", "Quintic", "Sextic"]
+        self.reg_list = ["Linear", "Quadratic", "Cubic", "Quartic", "Quintic", "Sextic"]
 
     def get_steps_list(self):
         """Lit la liste des paths à partir de la cellule 'Conv_LS_S1'."""
@@ -158,7 +158,25 @@ class RegressComp(SheetHandler):
     def write_results(self, ls_matrix):
         """Écrit les résultats Monte Carlo dans la feuille EU Pricing pour différents nombres de chemins."""
         self.sheet.range("RCPrices").value = ls_matrix
+    def write_results(self,times, price_matrix):
+        self.sheet.range("RCTimes").options(transpose=True).value = times
+        self.sheet.range("RCPriceByT").value = price_matrix
 
+class VarianceComp(SheetHandler):
+    def __init__(self, file_path):
+        super().__init__(file_path, "Variance Comp")
+        self.param_prefix = "VC_"
+
+    def get_steps_list(self):
+        steps = []
+        cell = self.sheet.range("VC_StepsList")  # Première cellule des steps
+        while cell.value is not None:
+            steps.append(int(cell.value))
+            cell = cell.offset(1, 0)  # Descend d'une ligne
+        return steps
+    def write_results(self, var_matrix):
+        self.sheet.range("VCPrices").value = var_matrix
+    
 # Classe pour la feuille Pricing Menu
 class PricingMenu(SheetHandler):
     def __init__(self, file_path):

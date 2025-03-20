@@ -105,16 +105,20 @@ class PathGenerator:
             paths = np.empty((self.n_paths, self.n_steps + 1))
             paths[:, 0] = self.market.S0  # Initialisation à S0
 
-            # Générer les mouvements browniens vectorisés
             if self.compute_antithetic and self.n_paths % 2 == 0:
-                # Générer les mouvements browniens vectorisés
-                dW = self.brownian.vectorized_motion(self.n_paths // 2, self.n_steps)
+                dW = self.brownian.vectorized_motion(self.n_paths//2, self.n_steps)
                 dW = np.concatenate((dW, -dW), axis=0)
-            else:
+                #if self.n_paths % 2 == 1:
+                    #dW_extra = self.brownian.vectorized_motion(1, self.n_steps)
+                    #dW = np.concatenate((dW, dW_extra), axis=0)
+            else  :
                 dW = self.brownian.vectorized_motion(self.n_paths, self.n_steps)
 
+            # Calcul des incréments pour tous les chemins
+            increments = self.get_factors(dW)
+
             # Diffusions
-            paths[:, 1:] = self.market.S0 * self.get_factors(dW)
+            paths[:, 1:] = self.market.S0 * increments
 
             # Application des dividendes discrets éventuels
             self._apply_dividends(paths)
@@ -126,18 +130,21 @@ class PathGenerator:
 
 # ---------------- Classe MCModel ----------------
 class MonteCarloEngine(Engine):
-    def __init__(self, market, option, pricing_date, n_paths, n_steps, seed=None, ex_frontier="Quadratic", compute_antithetic=False):
+    def __init__(self, market, option, pricing_date, n_paths, n_steps, seed=None, ex_frontier="Quadratic",compute_antithetic=False):
         super().__init__(market, option, pricing_date, n_paths, n_steps)
         self.PathGenerator = PathGenerator(
-            self.market, BrownianMotion(self.dt, seed), self.n_paths, self.n_steps, self.dt, self.t_div, compute_antithetic)
+            self.market, BrownianMotion(self.dt, seed), self.n_paths, self.n_steps, self.dt, self.t_div,compute_antithetic)
         self.reg_type = ex_frontier
+        self.payoffs=None
+        self.american_price_by_time=None
 
     def _price_american_lsm(self, paths):
         payoff = self.option.payoff(paths)
 
         CF = payoff[:, -1].copy()  # Valeur du payoff à l'échéance
         discount_factor = np.exp(-self.market.r * self.dt)
-
+        price_by_time = []
+        price_by_time.append(CF.mean() * np.exp(-self.market.r * self.T))
         for t in range(self.n_steps - 2, -1, -1):
             CF *= discount_factor  # Actualisation en un seul calcul
 
@@ -155,34 +162,50 @@ class MonteCarloEngine(Engine):
                 # exercised_before_T = np.sum(exercise)  # Nombre d'exercices avant T
                 # print("Nombre d'exercices anticipés (devrait être 0) :", exercised_before_T)
                 CF[in_money] = np.where(exercise, immediate[in_money], CF[in_money])
+                price_by_time.append(CF.mean() * np.exp(-self.market.r * (t + 1) * self.dt))
+        CF *= discount_factor
+        self.payoffs = CF
+        self.american_price_by_time = price_by_time.reverse()
 
-        return CF.mean() * self.df
+        return CF.mean()
 
     def _discounted_payoffs(self, paths):
         """Calcule les payoffs actualisés pour un pricing européen."""
         payoffs = self.option.payoff(paths[:, -1])  # Payoff à maturité
         return np.exp(-self.market.r * self.T) * payoffs  # Actualisation
-
+      
     def get_variance(self):
-         payoffs = self._discounted_payoffs(self.PathGenerator.generate_paths_vectorized())
-         if self.PathGenerator.compute_antithetic:
-             payoffs = (payoffs[:self.n_paths//2] + payoffs[self.n_paths//2:]) / 2
-         return payoffs.var()
-
+        if self.payoffs is None:
+            self._price_american_lsm(self.PathGenerator.generate_paths_vectorized())
+        payoffs = self.payoffs.copy()
+        if self.PathGenerator.compute_antithetic:
+            payoffs = (payoffs[:self.n_paths//2] + payoffs[self.n_paths//2:]) / 2
+        return payoffs.var()
+    
+    def get_american_price_path(self):
+        if self.price_by_time is None:
+            self._price_american_lsm(self.PathGenerator.generate_paths_vectorized())
+        return self.price_by_time
+    
     def _european_price(self, paths):
         """Calcule le prix européen moyen."""
-        return np.mean(self._discounted_payoffs(paths))
+        payoffs=self._discounted_payoffs(paths)
+        self.payoffs=payoffs
+        return np.mean(payoffs)
 
-    def european_price_confidence_interval(self, alpha=0.05):
+    def price_confidence_interval(self, alpha=0.05):
         """Calcule le prix européen et son intervalle de confiance Monte Carlo."""
 
-        discounted_payoffs = self._discounted_payoffs(
-            self.PathGenerator.generate_paths_vectorized())  # Récupère les payoffs actualisés
+        #discounted_payoffs = self._discounted_payoffs(
+            #self.PathGenerator.generate_paths_vectorized())  Old version
+        discounted_payoffs = self.payoffs.copy()
+           
+         # Récupère les payoffs actualisés
         mean_price = np.mean(discounted_payoffs)  # Prix moyen estimé
-        std_dev = np.std(discounted_payoffs, ddof=1)  # Écart-type des payoffs
+        std_dev = np.sqrt(self.get_variance().copy())  # Écart-type des payoffs
 
         # Quantile de la loi normale pour l'intervalle de confiance (avec numpy)
-        z = norm.ppf(1 - alpha / 2)
+        z = norm.ppf(1 - alpha / 2)  # Approximation sans scipy
 
         # Calcul de la marge d'erreur
         CI_half_width = z * (std_dev / np.sqrt(self.n_paths))
@@ -191,14 +214,13 @@ class MonteCarloEngine(Engine):
         CI_upper = mean_price + CI_half_width
 
         return (CI_upper, CI_lower)
-
+    
     def price(self, type):
         """ Retourne le prix associé au type d'option enregistré"""
         if type == "Longstaff":
             return self.american_price_vectorized()
         else:
             return self.european_price_vectorized()
-
     def european_price_scalar(self):
         return self._european_price(self.PathGenerator.generate_paths_scalar())
 
