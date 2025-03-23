@@ -102,9 +102,9 @@ class BlackScholesPricer:
         self._compute_d1_d2()
 
         if isinstance(self.option, Call):
-            return self.option.K * self.T * np.exp(-self.market.r * self.T) * stats.norm.cdf(self.d2)
+            return self.option.K * self.T * np.exp(-self.market.r * self.T) * stats.norm.cdf(self.d2) / 100
         elif isinstance(self.option, Put):
-            return -self.option.K * self.T * np.exp(-self.market.r * self.T) * stats.norm.cdf(-self.d2)
+            return -self.option.K * self.T * np.exp(-self.market.r * self.T) * stats.norm.cdf(-self.d2) / 100
 
     def all_greeks(self):
         return [self.delta(),self.gamma(),self.vega(),self.theta(),self.rho()]

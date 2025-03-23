@@ -19,8 +19,8 @@ def main():
     times.append(time.time() - start)
 
     prices.append(0)
-    #start = time.time()
-    #prices.append(model_mc.european_price_scalar())
+    start = time.time()
+    prices.append(model_mc.european_price_scalar())
     times.append(time.time() - start)
 
     start = time.time()
@@ -29,8 +29,8 @@ def main():
     times.append(time.time() - start)
 
     prices.append(0)
-    #start = time.time()
-    #prices.append(model_mc.american_price_scalar())
+    start = time.time()
+    prices.append(model_mc.american_price_scalar())
     times.append(time.time() - start)
 
     start = time.time()

@@ -16,8 +16,9 @@ def main():
     ls_prices = np.zeros((len(steps_list), len(regression_types)))
 
     for i, steps in enumerate(steps_list):
+        model = excel.get_mcmodel(n_steps=steps)  # Mise à jour des paramètres
         for j, reg_type in enumerate(regression_types):
-            model = excel.get_mcmodel(n_steps=steps, ex_frontier=reg_type)  # Mise à jour des paramètres
+            model.reg_type = reg_type
             ls_prices[i, j] = model.american_price_vectorized()
 
     # Écriture des résultats

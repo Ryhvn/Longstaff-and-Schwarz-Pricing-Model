@@ -59,7 +59,7 @@ class SheetHandler(ABC):
         )
 
     def get_mcmodel(self, **kwargs):
-        """Instancie un modèle Monte Carlo avec des paramètres ajustables."""
+        """Instancie un Engine Monte Carlo avec des paramètres ajustables."""
         return MonteCarloEngine(
             self.get_market(),
             self.get_options(),
@@ -68,7 +68,7 @@ class SheetHandler(ABC):
             n_steps=int(kwargs.get("n_steps", self.get_value(f"{self.param_prefix}Steps"))),
             seed=int(kwargs.get("seed", self.get_value(f"{self.param_prefix}Seed"))),
             ex_frontier=kwargs.get("ex_frontier",self.get_value(f"{self.param_prefix}Ex_frontier")),
-            compute_antithetic=kwargs.get("compute_antithetic", self.get_value(f"{self.param_prefix}Antithetic"))
+            compute_antithetic=kwargs.get("compute_antithetic", self.get_value(f"{self.param_prefix}Antithetic") == "True")
         )
 
     @abstractmethod
@@ -100,7 +100,6 @@ class EUPricing(SheetHandler):
             self.get_market(),
             self.get_options(),
             pricing_date=self.sheet.range("PrDate").value,
-            n_paths=int(self.sheet.range("Paths").value),
             n_steps=int(self.sheet.range("Steps").value),
         )
 
@@ -155,10 +154,21 @@ class RegressComp(SheetHandler):
             cell = cell.offset(1, 0)  # Descend d'une ligne
         return steps
 
+    def clear_step_list(self):
+        """Efface la liste des steps de pricing à partir de la cellule RCTimes, sans descendre trop bas."""
+        cell = self.sheet.range("RCTimes")  # Première cellule des steps
+
+        # Vérifier si la cellule contient des valeurs avant de tenter l'effacement
+        if cell.value is not None:
+            last_filled_cell = cell.end("down")  # Trouve la dernière cellule non vide
+            self.sheet.range(cell, last_filled_cell).value = None  # Efface tout le range
+
     def write_results(self, ls_matrix):
-        """Écrit les résultats Monte Carlo dans la feuille EU Pricing pour différents nombres de chemins."""
+        """Écrit les résultats LS dans la feuille Regres. Comp pour différents types de regressions."""
         self.sheet.range("RCPrices").value = ls_matrix
-    def write_results(self,times, price_matrix):
+
+    def write_price_by_time_results(self,times, price_matrix):
+        """Écrit les résultats de prix LS à chaque pas de temps dans la feuille Regres. Comp."""
         self.sheet.range("RCTimes").options(transpose=True).value = times
         self.sheet.range("RCPriceByT").value = price_matrix
 
@@ -167,13 +177,14 @@ class VarianceComp(SheetHandler):
         super().__init__(file_path, "Variance Comp")
         self.param_prefix = "VC_"
 
-    def get_steps_list(self):
+    def get_paths_list(self):
         steps = []
-        cell = self.sheet.range("VC_StepsList")  # Première cellule des steps
+        cell = self.sheet.range("VC_PathsList")  # Première cellule des paths
         while cell.value is not None:
             steps.append(int(cell.value))
             cell = cell.offset(1, 0)  # Descend d'une ligne
         return steps
+
     def write_results(self, var_matrix):
         self.sheet.range("VCPrices").value = var_matrix
     
@@ -196,7 +207,6 @@ class PricingMenu(SheetHandler):
             self.get_market(),
             self.get_options(),
             pricing_date=self.sheet.range(f"{self.param_prefix}PrDate").value,
-            n_paths=int(self.sheet.range(f"{self.param_prefix}Paths").value),
             n_steps=int(self.sheet.range(f"{self.param_prefix}Steps").value),
         )
 

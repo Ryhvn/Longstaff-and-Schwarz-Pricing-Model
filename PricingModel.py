@@ -6,11 +6,10 @@ import numpy as np
 
 # ---------------- Model Abstract Class ----------------
 class Engine(ABC):
-    def __init__(self, market: Market, option: Option, pricing_date, n_paths, n_steps):
+    def __init__(self, market: Market, option: Option, pricing_date, n_steps):
         self.market = market
         self._option = option
         self.pricing_date = pricing_date
-        self.n_paths = n_paths
         self.n_steps = n_steps
         self.T = self._calculate_T()
         self.dt = self.T / n_steps

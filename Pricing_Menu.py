@@ -1,6 +1,8 @@
 import time
 from Excel_Handler import PricingMenu
 from Greeks import GreeksCalculator
+from MCPricer import MonteCarloEngine
+
 
 def main():
     excel = PricingMenu("Models_comparisons.xlsm")
@@ -11,16 +13,20 @@ def main():
     # Calcul des prix & grecques
     prices = []
     times = []
-    bs_greeks = model.bsm.all_greeks()
-    model_greeks = GreeksCalculator(model,type=type).all_greeks()
 
     start = time.time()
     prices.append(model.bsm.price())
     times.append(time.time() - start)
 
     start = time.time()
-    prices.append(model.price(type))
+    if isinstance(model, MonteCarloEngine):
+        prices.append(model.price(type))
+    else:
+        prices.append(model.price())
     times.append(time.time() - start)
+
+    bs_greeks = model.bsm.all_greeks()
+    model_greeks = GreeksCalculator(model,type=type).all_greeks()
 
     # Écriture des résultats dans Excel
     excel.write_results(prices, times, bs_greeks, model_greeks)

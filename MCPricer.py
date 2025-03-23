@@ -127,28 +127,31 @@ class PathGenerator:
 
         return self.paths_vectorized
 
-
 # ---------------- Classe MCModel ----------------
 class MonteCarloEngine(Engine):
     def __init__(self, market, option, pricing_date, n_paths, n_steps, seed=None, ex_frontier="Quadratic",compute_antithetic=False):
-        super().__init__(market, option, pricing_date, n_paths, n_steps)
+        super().__init__(market, option, pricing_date, n_steps)
+        self.n_paths = n_paths
+        self.reg_type = ex_frontier
+        self.eu_payoffs = None
+        self.am_payoffs = None
+        self.american_price_by_time = None
         self.PathGenerator = PathGenerator(
             self.market, BrownianMotion(self.dt, seed), self.n_paths, self.n_steps, self.dt, self.t_div,compute_antithetic)
-        self.reg_type = ex_frontier
-        self.payoffs=None
-        self.american_price_by_time=None
 
-    def _price_american_lsm(self, paths):
-        payoff = self.option.payoff(paths)
+    def _price_american_lsm(self, paths, analysis=False):
+        global price_by_time
 
-        CF = payoff[:, -1].copy()  # Valeur du payoff à l'échéance
-        discount_factor = np.exp(-self.market.r * self.dt)
-        price_by_time = []
-        price_by_time.append(CF.mean() * np.exp(-self.market.r * self.T))
+        CF = self.option.payoff(paths[:,-1]) # Valeur du payoff à l'échéance
+
+        if analysis:
+            price_by_time = []
+            price_by_time.append(CF.mean() * np.exp(-self.market.r * self.T))
+
         for t in range(self.n_steps - 2, -1, -1):
-            CF *= discount_factor  # Actualisation en un seul calcul
 
-            immediate = payoff[:, t]
+            CF *= self.df # Actualisation en un seul calcul
+            immediate = self.option.payoff(paths[:, t])
             in_money = immediate > 0  # Mask des options ITM
 
             if np.any(in_money):  # Vérifie si au moins une option est ITM
@@ -162,46 +165,62 @@ class MonteCarloEngine(Engine):
                 # exercised_before_T = np.sum(exercise)  # Nombre d'exercices avant T
                 # print("Nombre d'exercices anticipés (devrait être 0) :", exercised_before_T)
                 CF[in_money] = np.where(exercise, immediate[in_money], CF[in_money])
-                price_by_time.append(CF.mean() * np.exp(-self.market.r * (t + 1) * self.dt))
-        CF *= discount_factor
-        self.payoffs = CF
-        self.american_price_by_time = price_by_time.reverse()
+
+                if analysis:
+                    price_by_time.append(CF.mean() * np.exp(-self.market.r * (t + 1) * self.dt))
+
+        #CF *= self.df pas nécessaire d'actualiser encore un coup ? en t=0 je rentre dans la boucle et j'actualise déjà la matrice de CF t=1
+        self.am_payoffs = CF
+
+        if analysis:
+            self.american_price_by_time = price_by_time
 
         return CF.mean()
 
-    def _discounted_payoffs(self, paths):
+    def _discounted_payoffs_by_method(self, type):
+        """Calcule les payoffs associés à la méthode de pricing"""
+        if type == "MC":
+            if self.eu_payoffs is None:
+                self.eu_payoffs = self._discounted_eu_payoffs(
+                    self.PathGenerator.generate_paths_vectorized())
+            return self.eu_payoffs.copy()
+        else:
+            if self.am_payoffs is None:
+                self._price_american_lsm(self.PathGenerator.generate_paths_vectorized(),analysis=True)
+            return self.am_payoffs.copy()
+
+    def _discounted_eu_payoffs(self, paths):
         """Calcule les payoffs actualisés pour un pricing européen."""
         payoffs = self.option.payoff(paths[:, -1])  # Payoff à maturité
-        return np.exp(-self.market.r * self.T) * payoffs  # Actualisation
+        return np.exp(-self.market.r * self.T) * payoffs # Actualisation
       
-    def get_variance(self):
-        if self.payoffs is None:
-            self._price_american_lsm(self.PathGenerator.generate_paths_vectorized())
-        payoffs = self.payoffs.copy()
+    def get_variance(self, type="MC"):
+        """Calcule la variance des payoffs actualisés pour la méthode de prix associée"""
+        discounted_payoffs = self._discounted_payoffs_by_method(type)
+
         if self.PathGenerator.compute_antithetic:
-            payoffs = (payoffs[:self.n_paths//2] + payoffs[self.n_paths//2:]) / 2
-        return payoffs.var()
+            discounted_payoffs = (discounted_payoffs[:self.n_paths//2] + discounted_payoffs[self.n_paths//2:]) / 2
+        return discounted_payoffs.var()
     
     def get_american_price_path(self):
-        if self.price_by_time is None:
-            self._price_american_lsm(self.PathGenerator.generate_paths_vectorized())
-        return self.price_by_time
+        #if self.american_price_by_time is None:
+        self._price_american_lsm(self.PathGenerator.generate_paths_vectorized(),analysis=True)
+        return self.american_price_by_time
     
     def _european_price(self, paths):
         """Calcule le prix européen moyen."""
-        payoffs=self._discounted_payoffs(paths)
-        self.payoffs=payoffs
+        payoffs=self._discounted_eu_payoffs(paths)
         return np.mean(payoffs)
 
-    def price_confidence_interval(self, alpha=0.05):
-        """Calcule le prix européen et son intervalle de confiance Monte Carlo."""
-
-        #discounted_payoffs = self._discounted_payoffs(
-            #self.PathGenerator.generate_paths_vectorized())  Old version
-        discounted_payoffs = self.payoffs.copy()
+    def price_confidence_interval(self, alpha=0.05, type="MC"):
+        """Calcule le prix et son intervalle de confiance Monte Carlo."""
+        # Attention, la méthode conditionnelle ci-dessous fonctionne seulement si
+        # aucun paramètre de calcul américain (ex reg_type n'est modifié) autrement on rappelera toujours le payoff mémoire sans recalcul
+        discounted_payoffs = self._discounted_payoffs_by_method(type)
            
          # Récupère les payoffs actualisés
         mean_price = np.mean(discounted_payoffs)  # Prix moyen estimé
+
         std_dev = np.sqrt(self.get_variance().copy())  # Écart-type des payoffs
 
         # Quantile de la loi normale pour l'intervalle de confiance (avec numpy)
@@ -215,12 +234,13 @@ class MonteCarloEngine(Engine):
 
         return (CI_upper, CI_lower)
     
-    def price(self, type):
+    def price(self, type="MC"):
         """ Retourne le prix associé au type d'option enregistré"""
         if type == "Longstaff":
             return self.american_price_vectorized()
         else:
             return self.european_price_vectorized()
+
     def european_price_scalar(self):
         return self._european_price(self.PathGenerator.generate_paths_scalar())
 
