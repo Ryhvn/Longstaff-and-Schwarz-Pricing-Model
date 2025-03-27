@@ -220,3 +220,21 @@ class PricingMenu(SheetHandler):
             return self.get_treemodel(), "Trinomial"
         else:
             raise ValueError("Le modèle sélectionné ne figure pas parmi les choix MC, Longstaff ou Trinomial.")
+
+class ConfidenceInterval(SheetHandler):
+    def __init__(self, file_path):
+        super().__init__(file_path, "Conf. Interval")
+        self.param_prefix = "CI_"
+        self.reg_list = ["Linear", "Quadratic", "Cubic", "Quartic", "Quintic", "Sextic"]
+
+    def get_seeds_list(self):
+        steps = []
+        cell = self.sheet.range("CI_SeedList")  # Première cellule des seeds
+        while cell.value is not None:
+            steps.append(int(cell.value))
+            cell = cell.offset(1, 0)  # Descend d'une ligne
+        return steps
+
+    def write_results(self, seeds_matrix, reg_matrix):
+        self.sheet.range("CI_Seed_values").value = seeds_matrix
+        self.sheet.range("CI_Reg_values").value = reg_matrix

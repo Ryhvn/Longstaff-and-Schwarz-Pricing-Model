@@ -8,7 +8,7 @@ class GreeksCalculator:
         """
         Initialise le calculateur de Greeks avec un modèle MC.
 
-        :param mc_model: Instance du modèle de Monte Carlo.
+        :param model: Instance du modèle.
         :param epsilon: Pas de variation pour les dérivées numériques.
         :param type: Méthode de pricing ("Longstaff / MC").
         """

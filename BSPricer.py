@@ -13,9 +13,27 @@ class BlackScholesPricer:
         self.q = self._compute_dividend_yield()
         self.d1, self.d2 = None, None  # Initialisation des valeurs de d1 et d2
 
+    def european_exercise_check(self):
+        """Détermine si une option américaine peut être traitée comme une option européenne."""
+
+        # Vérifie si c'est une option européenne
+        if self.option.exercise.lower() == "european":
+            return True
+
+        # Vérifie les conditions d'équivalence pour un Call américain
+        if isinstance(self.option, Call) and (not self.market.dividend) and self.market.r > 0:
+            return True
+
+        # Vérifie les conditions d'équivalence pour un Put américain
+        if isinstance(self.option, Put) and (not self.market.dividend) and self.market.r < 0:
+            return True
+
+        # Sinon, ce n'est pas une option équivalente à une européenne
+        return False
+
     def _adjust_initial_price(self, t_div, dt):
         """ Ajuste le prix initial en fonction des dividendes. """
-        if self.market.div_type == "discrete":
+        if self.market.div_type == "discrete" and self.market.div_date is not None:
             return self.market.S0 - self.market.dividend * np.exp(-self.market.r * t_div * dt)
         return self.market.S0
 
@@ -33,7 +51,7 @@ class BlackScholesPricer:
 
     def price(self):
         """ Calcul du prix de l'option via Black-Scholes. """
-        if self.option.exercise.lower() == "european":
+        if self.european_exercise_check():
             self._compute_d1_d2()
             if isinstance(self.option, Call):
                 return self.S0 * np.exp(-self.q * self.T) * stats.norm.cdf(self.d1) - \
@@ -53,7 +71,7 @@ class BlackScholesPricer:
 
     def delta(self):
         """ Calcul du Delta (sensibilité au spot). """
-        if self.option.exercise.lower() != "european":
+        if self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -64,7 +82,7 @@ class BlackScholesPricer:
 
     def gamma(self):
         """ Calcul du Gamma (convexité par rapport au spot). """
-        if self.option.exercise.lower() != "european":
+        if self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -72,7 +90,7 @@ class BlackScholesPricer:
 
     def vega(self):
         """ Calcul du Vega (sensibilité à la volatilité). """
-        if self.option.exercise.lower() != "european":
+        if self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -80,7 +98,7 @@ class BlackScholesPricer:
 
     def theta(self):
         """ Calcul du Theta (décroissance temporelle). """
-        if self.option.exercise.lower() != "european":
+        if self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -97,7 +115,7 @@ class BlackScholesPricer:
 
     def rho(self):
         """ Calcul du Rho (sensibilité aux taux d'intérêt). """
-        if self.option.exercise.lower() != "european":
+        if self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 

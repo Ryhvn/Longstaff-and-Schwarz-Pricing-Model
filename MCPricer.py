@@ -186,7 +186,7 @@ class MonteCarloEngine(Engine):
             return self.eu_payoffs.copy()
         else:
             if self.am_payoffs is None:
-                self._price_american_lsm(self.PathGenerator.generate_paths_vectorized(),analysis=True)
+                self._price_american_lsm(self.PathGenerator.generate_paths_vectorized())
             return self.am_payoffs.copy()
 
     def _discounted_eu_payoffs(self, paths):
