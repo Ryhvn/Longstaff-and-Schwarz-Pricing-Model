@@ -194,12 +194,15 @@ class PricingMenu(SheetHandler):
         super().__init__(file_path, "Pricing Menu")
         self.param_prefix = "Menu_"
 
-    def write_results(self, prices, times, bs_greeks, model_greeks):
+    def write_results(self, prices, times, bs_greeks, model_greeks,CI,std ):
         """Écrit les résultats de la première feuille."""
         self.sheet.range(f"{self.param_prefix}ModelPrices").value = prices
         self.sheet.range(f"{self.param_prefix}Times").value = times
         self.sheet.range(f"{self.param_prefix}BSGreeks").options(transpose=True).value = bs_greeks
         self.sheet.range(f"{self.param_prefix}ModelGreeks").options(transpose=True).value = model_greeks
+        self.sheet.range(f"{self.param_prefix}UPB_MC").value = CI[0]
+        self.sheet.range(f"{self.param_prefix}LPB_MC").value = CI[1]
+        self.sheet.range(f"{self.param_prefix}Std_MC").value = std
 
     def get_treemodel(self):
         """Instancie un modèle d'arbre trinomial pour la feuille PricingMenu."""

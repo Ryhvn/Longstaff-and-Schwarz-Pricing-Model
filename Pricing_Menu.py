@@ -11,16 +11,19 @@ def main():
     model, type = excel.get_selected_model()
 
     # Calcul des prix & grecques
+    CI = ["", ""]
+    std = ""
     prices = []
     times = []
 
     start = time.time()
     prices.append(model.bsm.price())
     times.append(time.time() - start)
-
     start = time.time()
     if isinstance(model, MonteCarloEngine):
         prices.append(model.price(type))
+        CI = model.price_confidence_interval()
+        std = model.get_std()
     else:
         prices.append(model.price())
     times.append(time.time() - start)
@@ -29,7 +32,7 @@ def main():
     model_greeks = GreeksCalculator(model,type=type).all_greeks()
 
     # Écriture des résultats dans Excel
-    excel.write_results(prices, times, bs_greeks, model_greeks)
+    excel.write_results(prices, times, bs_greeks, model_greeks,CI,std)
 
 if __name__ == "__main__":
     main()

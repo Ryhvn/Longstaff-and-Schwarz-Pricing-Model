@@ -212,6 +212,10 @@ class MonteCarloEngine(Engine):
         payoffs=self._discounted_eu_payoffs(paths)
         return np.mean(payoffs)
 
+    def get_std(self, type="MC"):
+        std = np.sqrt(self.get_variance(type).copy() / self.n_paths) 
+        return std
+
     def price_confidence_interval(self, alpha=0.05, type="MC"):
         """Calcule le prix et son intervalle de confiance Monte Carlo."""
         # Attention, la méthode conditionnelle ci-dessous fonctionne seulement si
@@ -221,13 +225,12 @@ class MonteCarloEngine(Engine):
          # Récupère les payoffs actualisés
         mean_price = np.mean(discounted_payoffs)  # Prix moyen estimé
 
-        std_dev = np.sqrt(self.get_variance().copy())  # Écart-type des payoffs
-
+        std_dev =self.get_std()  
         # Quantile de la loi normale pour l'intervalle de confiance (avec numpy)
         z = norm.ppf(1 - alpha / 2)  # Approximation sans scipy
 
         # Calcul de la marge d'erreur
-        CI_half_width = z * (std_dev / np.sqrt(self.n_paths))
+        CI_half_width = z * std_dev
 
         CI_lower = mean_price - CI_half_width
         CI_upper = mean_price + CI_half_width
