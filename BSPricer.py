@@ -71,7 +71,7 @@ class BlackScholesPricer:
 
     def delta(self):
         """ Calcul du Delta (sensibilité au spot). """
-        if self.european_exercise_check():
+        if not self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -82,7 +82,7 @@ class BlackScholesPricer:
 
     def gamma(self):
         """ Calcul du Gamma (convexité par rapport au spot). """
-        if self.european_exercise_check():
+        if not self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -90,7 +90,7 @@ class BlackScholesPricer:
 
     def vega(self):
         """ Calcul du Vega (sensibilité à la volatilité). """
-        if self.european_exercise_check():
+        if not self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -98,7 +98,7 @@ class BlackScholesPricer:
 
     def theta(self):
         """ Calcul du Theta (décroissance temporelle). """
-        if self.european_exercise_check():
+        if not self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 
@@ -115,7 +115,7 @@ class BlackScholesPricer:
 
     def rho(self):
         """ Calcul du Rho (sensibilité aux taux d'intérêt). """
-        if self.european_exercise_check():
+        if not self.european_exercise_check():
             return "NA"
         self._compute_d1_d2()
 

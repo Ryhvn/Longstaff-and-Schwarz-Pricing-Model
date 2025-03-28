@@ -89,11 +89,8 @@ class GreeksCalculator:
         model_up = self._recreate_model(market=self._original_model.market.copy(sigma=sigma + self.epsilon))
         model_down = self._recreate_model(market=self._original_model.market.copy(sigma=sigma - self.epsilon))
 
-        price_up = self._get_price(model_up,"sigma_up", up=True)
-        price_down = self._get_price(model_down,"sigma_down", down=True)
-
-        if isinstance(self._original_model, TreeModel):
-            return (price_up - price_down) / 2 / 100
+        price_up = self._get_price(model_up,"sigma_up")
+        price_down = self._get_price(model_down,"sigma_down")
 
         return (price_up - price_down) / (2 * self.epsilon) / 100
 
