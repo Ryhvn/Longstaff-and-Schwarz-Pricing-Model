@@ -22,8 +22,8 @@ def main():
     start = time.time()
     if isinstance(model, MonteCarloEngine):
         prices.append(model.price(type))
-        CI = model.price_confidence_interval()
-        std = model.get_std()
+        CI = model.price_confidence_interval(type=type)
+        std = model.get_std(type=type)
     else:
         prices.append(model.price())
     times.append(time.time() - start)

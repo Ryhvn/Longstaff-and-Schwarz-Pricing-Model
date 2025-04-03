@@ -166,14 +166,17 @@ class MonteCarloEngine(Engine):
             ) / 2
 
         return float(discounted_payoffs.var())
+
     # retourne la liste des prix américains par pas de temps
     def get_american_price_path(self) -> Optional[list[float]]: 
         self._price_american_lsm(self.PathGenerator.generate_paths_vectorized(), analysis=True)
         return self.american_price_by_time
+
     # calcule le prix européen
     def _european_price(self, paths: np.ndarray) -> float: 
         payoffs = self._discounted_eu_payoffs(paths)
         return float(np.mean(payoffs))
+
     # calcule l'écart-type des payoffs actualisés selon la méthode choisie
     def get_std(self, type: str = "MC") -> float: 
         std = np.sqrt(self.get_variance(type) / self.n_paths)
@@ -189,6 +192,7 @@ class MonteCarloEngine(Engine):
         CI_lower = mean_price - CI_half_width
         CI_upper = mean_price + CI_half_width
         return (float(CI_upper), float(CI_lower))
+
     #retourne le prix selon la méthode choisie
     def price(self, type: str = "MC") -> float:
         if type == "Longstaff":
