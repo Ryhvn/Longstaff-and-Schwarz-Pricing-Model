@@ -7,9 +7,8 @@ from scipy.stats import norm
 from Option import Option
 from datetime import date
 from typing import Optional, Tuple, Union
+
 # ---------------- PathGenerator Class ----------------
-import numpy as np
-from typing import Optional, Union
 
 class PathGenerator:
     def __init__(

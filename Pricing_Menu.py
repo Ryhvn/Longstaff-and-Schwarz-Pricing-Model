@@ -29,6 +29,7 @@ def main():
     times.append(time.time() - start)
 
     bs_greeks = model.bsm.all_greeks()
+
     model_greeks = GreeksCalculator(model,type=type).all_greeks()
 
     # Écriture des résultats dans Excel

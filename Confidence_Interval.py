@@ -1,7 +1,6 @@
 from Excel_Handler import ConfidenceInterval
 import numpy as np
 
-# Programme principal
 def main():
     global model
 

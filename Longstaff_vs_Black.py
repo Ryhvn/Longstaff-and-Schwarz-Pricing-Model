@@ -13,10 +13,6 @@ def main():
     paths_list = excel.get_paths_list()
 
     # Calcul des prix Black-Scholes
-    #bs_prices = np.array([
-        #model.bsm.price() if setattr(model, "option", option) is None else model.bsm.price()
-        #for option in options
-    #])
     bs_prices = []
     model = excel.get_mcmodel()
     for option in options:

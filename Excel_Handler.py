@@ -1,4 +1,5 @@
 import xlwings as xw
+from datetime import datetime
 from abc import ABC, abstractmethod
 from Market import Market
 from Option import Call, Put
@@ -137,7 +138,7 @@ class ConvLSvsBS(SheetHandler):
         """Écrit les résultats des prix BS et LS dans la feuille Convergence LS."""
         self.sheet.range("BS_range").value = bs_prices  # Range contenant les prix BS
         self.sheet.range("Conv_LS_P1").value = ls_matrix  # Première cellule des résultats LS
-
+        self.sheet.range("Conv_LS_Runtime").value = datetime.now()
 
 class RegressComp(SheetHandler):
     def __init__(self, file_path):

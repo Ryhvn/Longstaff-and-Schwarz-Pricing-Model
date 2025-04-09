@@ -3,7 +3,6 @@ from TreePricer import TreeModel
 from datetime import timedelta, date
 from typing import Optional, Any, Union
 import copy
-import numpy as np
 
 class GreeksCalculator:
     def __init__(

@@ -43,6 +43,7 @@ class Engine(ABC):
         T = self.option.T
         self._option = new_option
         self.bsm.option = new_option
+        self.bsm = BlackScholesPricer(self.market, self.option, self.t_div, self.dt, self.T)
         if new_option.T != T: # évites le recalcul des périodes si inchangé
             self.T = self._calculate_T()
             self.dt = self.T / self.n_steps
